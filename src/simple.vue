@@ -47,14 +47,14 @@
           </template>
           <div class="item-chunk-box">
             <el-table :data="item.chunkList" border max-height="300">
-              <el-table-column prop="index" label="#" align="center" />
-              <el-table-column prop="hash" label="切片md5" align="center" show-overflow-tooltip />
+              <el-table-column prop="index" label="#" align="center" width="100" />
+              <el-table-column prop="hash" label="切片md5" align="center" min-width="100" show-overflow-tooltip />
               <el-table-column label="大小" align="center" width="120">
                 <template v-slot="{ row }">
                   {{ row.size | transformByte }}
                 </template>
               </el-table-column>
-              <el-table-column prop="uploaded" label="是否完成" align="center">
+              <el-table-column prop="uploaded" label="是否完成" align="center" width="100">
                 <template v-slot="{ row }">
                   {{ row.uploaded ? '完成' : '进行中' }}
                 </template>
@@ -346,6 +346,7 @@ export default {
             hash: filesArr[i].hash + '-' + index,
             chunk: file,
             size: file.size,
+            chunkSize,
             uploaded: getChunkStorage && getChunkStorage.includes(index), // 标识：是否已完成上传
             progress: getChunkStorage && getChunkStorage.includes(index) ? 100 : 0,
             status: getChunkStorage && getChunkStorage.includes(index) ? 'success' : 'wait' // 上传状态，用作进度状态显示
@@ -368,8 +369,12 @@ export default {
           .map(({ fileHash, chunk, fileName, index }) => {
             const formData = new FormData();
             formData.append('md5', fileHash);
+            formData.append('hash', fileHash);
             formData.append('file', chunk);
-            formData.append('fileName', index); // 文件名使用切片的下标
+            formData.append('fileName', fileName); // 文件名使用切片的下标
+            formData.append('name', fileName); // 文件名使用切片的下标
+            formData.append('index', index);
+            formData.append('chunkSize', chunkSize);
 
             return { formData, index, fileName };
           });
@@ -422,7 +427,7 @@ export default {
             const index = formInfo.index;
 
             instance
-              .post('fileChunk', formData, {
+              .post('chunks_upload', formData, {
                 onUploadProgress: that.createProgresshandler(chunkData[index]),
                 cancelToken: new CancelToken((c) => this.cancels.push(c)),
                 timeout: 0
@@ -489,28 +494,32 @@ export default {
       return new Promise((resolve, reject) => {
         const obj = {
           md5: data.fileHash,
+          hash: data.fileHash,
           fileName: data.name,
+          name: data.name,
           fileChunkNum: data.chunkList.length,
+          total: data.chunkList.length,
+          chunkSize,
           ...this.uploadArguments
         };
 
         instance
-          .post('fileChunk/merge', obj, {
+          .post('chunks_merge', obj, {
             timeout: 0
           })
           .then((res) => {
             // 清除storage
-            if (res.data.code === 2000) {
+            if (res.data.code === 20000) {
               data.status = fileStatus.success;
               console.log('mergeRequest -> data', data);
-              clearLocalStorage(data.fileHash);
+              clearLocalStorage(data.hash);
               // this.$message.success('上传成功');
               // 判断是否所有都成功上传
               this.isAllStatus();
               resolve();
             } else {
               // 文件块数量不对，清除缓存
-              clearLocalStorage(data.fileHash);
+              clearLocalStorage(data.hash);
               data.status = fileStatus.error;
               this.status = Status.wait;
               resolve();
@@ -563,11 +572,13 @@ export default {
       return new Promise((resolve) => {
         const obj = {
           md5: fileHash,
+          hash: fileHash,
           fileName,
+          name: fileName,
           ...this.uploadArguments
         };
         instance
-          .get('fileChunk/presence', { params: obj })
+          .post('hash_check', obj)
           .then((res) => {
             console.log('verifyUpload -> res', res);
             resolve(res.data);
@@ -681,7 +692,7 @@ export default {
 </script>
 <style scoped lang="scss">
 .simple-upload-container {
-  width: 100%;
+  width: 98%;
   border: 1px solid #d2d2d2;
   border-radius: 4px;
   background-color: #fff;
@@ -731,6 +742,10 @@ export default {
           font-size: 22px;
           vertical-align: sub;
         }
+        flex: 0 0 30%;
+      }
+      .item-size {
+        flex: 0 0 10%;
       }
       .item-status {
         flex: 0 0 10%;
@@ -752,7 +767,7 @@ export default {
         z-index: 10;
       }
       .item-progress {
-        flex: 0 0 60%;
+        flex: 0 0 50%;
       }
     }
   }

@@ -14,7 +14,7 @@
         @success="success"
       >
         <div slot="tip" class="upload-tip">
-          <i class="el-icon-info"></i>:
+          <i class="el-icon-info"></i>
           只能上传：{{ acceptDesc[uploadType] }}
         </div>
       </Simple>
@@ -59,10 +59,10 @@ export default {
     },
     // 临时自测使用
     uploadArguments: {
-      type: 'video'
+      type: 'excel'
     },
     limit: 20,
-    chunkSize: 50 * 1024 * 1024,
+    chunkSize: 2 * 1024 * 1024,
     share: 1 // 是否共享 0私有  1共享
   }),
   computed: {
@@ -72,7 +72,7 @@ export default {
       };
     },
     baseUrl() {
-      return 'http://localhost:3000';
+      return 'http://localhost:3001/upload';
     },
     uploadType() {
       return this.uploadArguments.type;
